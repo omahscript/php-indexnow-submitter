@@ -48,6 +48,10 @@ For detailed protocol documentation, visit [IndexNow Official Documentation](htt
 ## Features
 
 - Efficient bulk URL submission (up to 10,000 URLs per request)
+- Support for sitemap index files (sitemap of sitemaps)
+- Automatic sitemap detection from domain URL
+- Auto-detection of existing IndexNow keys on the host
+- Interactive key verification and setup assistance
 - Asynchronous processing for faster submissions
 - Supports all IndexNow-enabled search engines
 - Automatic rate limiting and retry logic for 429 errors
@@ -56,6 +60,7 @@ For detailed protocol documentation, visit [IndexNow Official Documentation](htt
 - Generates a random API key if none is provided
 - Provides detailed submission reports with retry statistics
 - Handles errors gracefully
+- Supports alternate language URLs (hreflang)
 
 ## Installation
 
@@ -74,11 +79,45 @@ pip install -r requirements.txt
 
 ### Getting an API Key
 
-You have two options for obtaining an API key:
+You have three options for obtaining an API key:
 
-1. **Automatic Generation**: The script can automatically generate a random 32-character key for you.
+1. **Auto-Detection**: The script will automatically search for an existing key file on your host in:
+   - Root directory (`https://example.com/*.txt`)
+   - `.well-known` directory (`https://example.com/.well-known/*.txt`)
 
-2. **Manual Creation**: Create your own 32-character key using letters and numbers.
+2. **Automatic Generation**: If no existing key is found, the script will:
+   - Generate a random 32-character key
+   - Guide you through the key file setup process
+   - Wait for you to upload the key file
+   - Verify the key file is accessible
+   - Only proceed once verification is successful
+
+3. **Manual Specification**: Provide your own key using the `--api-key` parameter.
+
+The script prioritizes:
+1. Manually specified key (if provided)
+2. Existing key found on the host
+3. Newly generated key with interactive verification
+
+### Interactive Key Setup
+
+When no existing key is found, the script will:
+
+1. Generate a new key
+2. Display clear instructions for creating the key file
+3. Show the exact locations where the file should be uploaded
+4. Wait for you to complete the setup
+5. Verify the key file is accessible
+6. Provide helpful troubleshooting tips if verification fails
+
+You can disable the interactive mode using the `--non-interactive` flag.
+
+### Key File Locations
+
+The script checks for key files in the following locations:
+- Root directory: `https://example.com/{key}.txt`
+- Well-known directory: `https://example.com/.well-known/{key}.txt`
+- Common name: `https://example.com/indexnow.txt`
 
 ### Verifying Site Ownership
 
@@ -97,12 +136,17 @@ echo "abc123" > abc123.txt
 # Upload to https://example.com/abc123.txt
 ```
 
-
 ## Usage
 
 ### Basic Usage
 
-Submit URLs from a sitemap using an automatically generated key:
+Submit URLs from a website by automatically detecting its sitemap:
+
+```bash
+python indexnow_submitter.py https://example.com
+```
+
+Submit URLs from a specific sitemap:
 
 ```bash
 python indexnow_submitter.py https://example.com/sitemap.xml
@@ -116,15 +160,39 @@ Use your own API key and configure concurrent requests and batch size:
 python indexnow_submitter.py https://example.com/sitemap.xml \
     --api-key your32characterAPIkeyHere12345678901 \
     --max-concurrent 3 \
-    --batch-size 5000
+    --batch-size 5000 \
+    --non-interactive
 ```
 
 ### Command Line Arguments
 
-- `sitemap_url`: URL of the sitemap to process (required)
+- `url`: Website URL or sitemap URL (required)
+  - If a website URL is provided (e.g., https://example.com), the script will:
+    1. Check robots.txt for sitemap declarations
+    2. Look for sitemaps in common locations
+    3. Let you choose which sitemap to use if multiple are found
+  - If a sitemap URL is provided (ending in .xml), it will be used directly
 - `--api-key`: IndexNow API key (optional, will generate if not provided)
 - `--max-concurrent`: Maximum number of concurrent requests (default: 3)
 - `--batch-size`: Number of URLs to submit in each batch (default: 10000, max: 10000)
+- `--non-interactive`: Run in non-interactive mode without prompts
+
+### Sitemap Auto-Detection
+
+The script can automatically find your sitemap when you provide just the website URL. It will:
+
+1. Check robots.txt for Sitemap: declarations
+2. Look for sitemaps in common locations:
+   - /sitemap.xml
+   - /sitemap_index.xml
+   - /sitemap-index.xml
+   - /sitemaps/sitemap.xml
+   - /wp-sitemap.xml (WordPress)
+   - /sitemap/sitemap.xml
+
+If multiple sitemaps are found:
+- In interactive mode: You'll be prompted to choose which sitemap to use
+- In non-interactive mode: The first sitemap found will be used automatically
 
 ## Features Details
 
@@ -200,4 +268,47 @@ The script now uses IndexNow's bulk submission feature, which:
 
 ## License
 
-MIT License - feel free to use and modify as needed. 
+MIT License - feel free to use and modify as needed.
+
+### Sitemap Support
+
+The script supports both individual sitemaps and sitemap index files:
+
+1. **Individual Sitemaps**:
+   - Standard XML sitemaps with `<url>` entries
+   - Extracts URLs from `<loc>` tags
+   - Also captures alternate language versions (hreflang)
+
+2. **Sitemap Index Files**:
+   - XML files containing multiple sitemap references
+   - Example: sitemap_index.xml containing:
+     ```xml
+     <sitemapindex>
+       <sitemap>
+         <loc>https://example.com/post-sitemap1.xml</loc>
+       </sitemap>
+       <sitemap>
+         <loc>https://example.com/post-sitemap2.xml</loc>
+       </sitemap>
+     </sitemapindex>
+     ```
+   - Automatically processes all referenced sitemaps
+   - Combines URLs from all child sitemaps
+   - Handles both absolute and relative sitemap URLs
+
+3. **Alternate Language Support**:
+   - Detects alternate language versions of pages
+   - Processes hreflang annotations in sitemaps
+   - Ensures all language variants are submitted
+
+Example sitemap index usage:
+```bash
+# Process a sitemap index file
+python indexnow_submitter.py https://example.com/sitemap_index.xml
+
+# The script will:
+# 1. Detect it's a sitemap index
+# 2. Process each child sitemap
+# 3. Combine all URLs
+# 4. Submit them in batches
+``` 
