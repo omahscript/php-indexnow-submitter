@@ -1,279 +1,142 @@
 # IndexNow Sitemap Submitter
 
-This Python script automatically submits URLs from a sitemap to search engines using the IndexNow protocol. It supports all IndexNow-enabled search engines including Bing, Yandex, Seznam.cz, Naver, and Yep.
+A simple tool to automatically notify search engines when your website content changes. Submit your sitemap once, and all major search engines will know about your updates!
 
-## About IndexNow
+## 🚀 Quick Start
 
-IndexNow is a protocol that enables websites to instantly inform search engines about latest content changes on their website. Instead of waiting for search engines to discover content changes, IndexNow allows websites to automatically notify search engines when pages are added, updated, or deleted.
-
-Key benefits:
-- Instant notifications of content changes
-- Efficient crawling (reduces unnecessary crawls)
-- Shared updates (notify one search engine, reach all participating engines)
-
-For detailed protocol documentation, visit [IndexNow Official Documentation](https://www.indexnow.org/documentation).
-
-## Features
-
-- Efficient bulk URL submission (up to 10,000 URLs per request)
-- Support for sitemap index files (sitemap of sitemaps)
-- Automatic sitemap detection from domain URL
-- Auto-detection of existing IndexNow keys on the host
-- Interactive key verification and setup assistance
-- Asynchronous processing for faster submissions
-- Supports all IndexNow-enabled search engines
-- Automatic rate limiting and retry logic for 429 errors
-- Exponential backoff for failed requests
-- Configurable concurrent requests and batch sizes
-- Generates a random API key if none is provided
-- Provides detailed submission reports with retry statistics
-- Handles errors gracefully
-- Supports alternate language URLs (hreflang)
-
-## Installation
-
-1. Clone this repository:
-```bash
-git clone https://github.com/gonzague/indexnow-submitter.git
-cd indexnow-submitter
-```
-
-2. Install the required dependencies:
+1. Install the tool (tested with Python 3.11)
 ```bash
 pip install -r requirements.txt
 ```
 
-## API Key Setup
-
-### Getting an API Key
-
-You have the following options for obtaining an API key:
-
-
-1. **Automatic Generation**: If no existing key is found, the script will:
-   - Generate a random 32-character key
-   - Guide you through the key file setup process
-   - Wait for you to upload the key file
-   - Verify the key file is accessible
-   - Only proceed once verification is successful
-
-2. **Manual Specification**: Provide your own key using the `--api-key` parameter.
-
-The script prioritizes:
-1. Manually specified key (if provided)
-2. Existing key found on the host
-3. Newly generated key with interactive verification
-
-### Interactive Key Setup
-
-When no existing key is found, the script will:
-
-1. Generate a new key
-2. Display clear instructions for creating the key file
-3. Show the exact locations where the file should be uploaded
-4. Wait for you to complete the setup
-5. Verify the key file is accessible
-6. Provide helpful troubleshooting tips if verification fails
-
-You can disable the interactive mode using the `--non-interactive` flag.
-
-### Key File Locations
-
-The script checks for key files in the following locations:
-- Root directory: `https://example.com/{key}.txt`
-- Well-known directory: `https://example.com/.well-known/{key}.txt`
-- Common name: `https://example.com/indexnow.txt`
-
-### Verifying Site Ownership
-
-Before using IndexNow, you need to verify ownership of your site. Here's how:
-
-1. Create a text file named `{your-key}.txt`
-2. Put your API key as the only content in this file
-3. Upload the file to your site's root directory:
-   - `https://example.com/{your-key}.txt`
-   - `https://example.com/.well-known/{your-key}.txt` (alternative location)
-
-Example:
+2. Submit your website's URLs:
 ```bash
-# If your key is "abc123"
-echo "abc123" > abc123.txt
-# Upload to https://example.com/abc123.txt
+python indexnow_submitter.py https://your-website.com
 ```
 
-## Usage
+That's it! The tool will:
+- Find your sitemap automatically
+- Generate an API key if needed
+- Guide you through a simple setup
+- Submit your URLs to all major search engines
 
-### Basic Usage
+## 📖 Common Use Cases
 
-Submit URLs from a website by automatically detecting its sitemap:
-
-```bash
-python indexnow_submitter.py https://example.com
-```
-
-Submit URLs from a specific sitemap:
+### Submit a Specific Sitemap
 
 ```bash
-python indexnow_submitter.py https://example.com/sitemap.xml
+python indexnow_submitter.py https://your-website.com/sitemap.xml
 ```
 
-### Advanced Usage
-
-Use your own API key and configure concurrent requests and batch size:
+### Use Your Own API Key
 
 ```bash
-python indexnow_submitter.py https://example.com/sitemap.xml \
-    --api-key your32characterAPIkeyHere12345678901 \
-    --max-concurrent 3 \
-    --batch-size 5000 \
-    --non-interactive
+python indexnow_submitter.py https://your-website.com --api-key your-key-here
 ```
 
-### Command Line Arguments
+### Run Without Prompts (Automated Mode)
 
-- `url`: Website URL or sitemap URL (required)
-  - If a website URL is provided (e.g., https://example.com), the script will:
-    1. Check robots.txt for sitemap declarations
-    2. Look for sitemaps in common locations
-    3. Let you choose which sitemap to use if multiple are found
-  - If a sitemap URL is provided (ending in .xml), it will be used directly
-- `--api-key`: IndexNow API key (optional, will generate if not provided)
-- `--max-concurrent`: Maximum number of concurrent requests (default: 3)
-- `--batch-size`: Number of URLs to submit in each batch (default: 10000, max: 10000)
-- `--non-interactive`: Run in non-interactive mode without prompts
+```bash
+python indexnow_submitter.py https://your-website.com --non-interactive
+```
 
-### Sitemap Auto-Detection
+## 🔑 API Key Setup
 
-The script can automatically find your sitemap when you provide just the website URL. It will:
+### Option 1: Let the Tool Handle It (Recommended)
+Just run the tool - it will:
+1. Generate a key for you
+2. Show you where to put it
+3. Wait while you set it up
+4. Verify everything works
 
-1. Check robots.txt for Sitemap: declarations
-2. Look for sitemaps in common locations:
-   - /sitemap.xml
-   - /sitemap_index.xml
-   - /sitemap-index.xml
-   - /sitemaps/sitemap.xml
-   - /wp-sitemap.xml (WordPress)
-   - /sitemap/sitemap.xml
+### Option 2: Manual Setup
+1. Create a text file with your key:
+```bash
+echo "your-key-here" > your-key-here.txt
+```
 
-If multiple sitemaps are found:
-- In interactive mode: You'll be prompted to choose which sitemap to use
-- In non-interactive mode: The first sitemap found will be used automatically
+2. Upload it to one of these locations:
+- `https://your-website.com/your-key-here.txt`
+- `https://your-website.com/.well-known/your-key-here.txt`
 
-## Features Details
+## ✨ Features
+
+- 🔄 Instant search engine updates
+- 🔍 Supports Bing, Yandex, and other major search engines
+- 📑 Handles all sitemap types (including sitemap index files)
+- 🚦 Smart rate limiting to avoid overload
+- 🔄 Automatic retries if something fails
+- 🌍 Supports multiple languages (hreflang)
+
+## 🛠️ Advanced Usage
+
+### Command Line Options
+
+```bash
+python indexnow_submitter.py https://your-website.com [options]
+
+Options:
+  --api-key KEY        Your IndexNow API key
+  --max-concurrent N   Max parallel requests (default: 3)
+  --batch-size N      URLs per batch (default: 10000)
+  --non-interactive   Run without prompts
+```
 
 ### Supported Search Engines
-- IndexNow API (central endpoint)
 - Microsoft Bing
 - Yandex
 - Seznam.cz
 - Naver
 - Yep
 
-### Bulk Submission
-The script now uses IndexNow's bulk submission feature, which:
-- Processes URLs in batches (up to 10,000 URLs per request)
-- Reduces the number of API calls needed
-- Improves overall submission speed
-- Provides better rate limit handling
-
-### Rate Limiting and Retry Logic
-- Implements exponential backoff for rate limit (429) responses
-- Retries up to 5 times with increasing delays
-- Tracks retry statistics in the final report
-- Configurable concurrent requests to prevent overwhelming servers
-- Automatic batch processing with configurable size
-
-## Best Practices
-
-1. **API Key Management**:
-   - Use the same key consistently for each host
-   - Verify the key file is accessible before running the script
-
-2. **Rate Limiting**:
-   - Start with the default concurrent requests (3)
-   - Increase only if needed and if your server can handle it
-   - Monitor retry statistics in the report
-
-3. **When to Submit**:
-   - Submit URLs only when content changes
-   - Avoid submitting the same URL multiple times per day
-   - Don't submit URLs for minor content changes
-
-4. **Monitoring**:
-   - Check the submission report for success rates
-   - Monitor your server logs for key file verification requests
-   - Watch for rate limit warnings in the script output
-
-## Troubleshooting
+## 🔍 Troubleshooting
 
 ### Common Issues
 
-1. **Key File Not Found**:
-   - Verify the key file is uploaded to the correct location
-   - Check file permissions
-   - Ensure the file is accessible via HTTP/HTTPS
+**URLs Not Being Submitted?**
+1. Check if your sitemap is accessible
+2. Make sure URLs in the sitemap are valid
+3. Verify your API key file is accessible
 
-2. **Rate Limiting**:
-   - Reduce the number of concurrent requests
-   - Check if you're submitting URLs too frequently
-   - Monitor retry statistics
+**Getting Rate Limited?**
+- Reduce `--max-concurrent` to 2 or 1
+- Wait a few minutes and try again
 
-3. **Failed Submissions**:
-   - Verify URL accessibility
-   - Check if URLs are properly formatted
-   - Ensure content meets search engine guidelines
+**Key File Not Working?**
+- Ensure it's accessible via HTTPS
+- Check it contains only the key (no extra spaces)
+- Try the `.well-known` directory instead
 
-## Requirements
+Need more help? Check the [IndexNow Documentation](https://www.indexnow.org/documentation)
 
-- Python 3.7+
-- aiohttp
-- asyncio
-- tenacity
-- requests
+## 📚 Technical Details
 
-## License
+<details>
+<summary>Click to expand technical information</summary>
 
-MIT License - feel free to use and modify as needed.
+### Sitemap Processing
+- Supports XML sitemaps and sitemap indexes
+- Handles up to 10,000 URLs per batch
+- Processes alternate language versions
+- Retries failed submissions with exponential backoff
 
-### Sitemap Support
+### Rate Limiting
+- Smart retry logic for 429 responses
+- Configurable concurrent requests
+- Automatic batch processing
 
-The script supports both individual sitemaps and sitemap index files:
+### Sitemap Auto-Detection
+Checks these locations:
+- /sitemap.xml
+- /sitemap_index.xml
+- /sitemap-index.xml
+- /sitemaps/sitemap.xml
+- /wp-sitemap.xml
+- /sitemap/sitemap.xml
+- Entries in robots.txt
 
-1. **Individual Sitemaps**:
-   - Standard XML sitemaps with `<url>` entries
-   - Extracts URLs from `<loc>` tags
-   - Also captures alternate language versions (hreflang)
+</details>
 
-2. **Sitemap Index Files**:
-   - XML files containing multiple sitemap references
-   - Example: sitemap_index.xml containing:
-     ```xml
-     <sitemapindex>
-       <sitemap>
-         <loc>https://example.com/post-sitemap1.xml</loc>
-       </sitemap>
-       <sitemap>
-         <loc>https://example.com/post-sitemap2.xml</loc>
-       </sitemap>
-     </sitemapindex>
-     ```
-   - Automatically processes all referenced sitemaps
-   - Combines URLs from all child sitemaps
-   - Handles both absolute and relative sitemap URLs
+## 📝 License
 
-3. **Alternate Language Support**:
-   - Detects alternate language versions of pages
-   - Processes hreflang annotations in sitemaps
-   - Ensures all language variants are submitted
-
-Example sitemap index usage:
-```bash
-# Process a sitemap index file
-python indexnow_submitter.py https://example.com/sitemap_index.xml
-
-# The script will:
-# 1. Detect it's a sitemap index
-# 2. Process each child sitemap
-# 3. Combine all URLs
-# 4. Submit them in batches
-``` 
+MIT License - Use it freely in your projects! 
