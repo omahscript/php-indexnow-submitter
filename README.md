@@ -2,6 +2,49 @@
 
 This Python script automatically submits URLs from a sitemap to search engines using the IndexNow protocol. It supports all IndexNow-enabled search engines including Bing, Yandex, Seznam.cz, Naver, and Yep.
 
+## About IndexNow
+
+IndexNow is a protocol that enables websites to instantly inform search engines about latest content changes on their website. Instead of waiting for search engines to discover content changes, IndexNow allows websites to automatically notify search engines when pages are added, updated, or deleted.
+
+Key benefits:
+- Instant notifications of content changes
+- Efficient crawling (reduces unnecessary crawls)
+- Eco-friendly (reduces the internet's carbon footprint)
+- Shared updates (notify one search engine, reach all participating engines)
+
+For detailed protocol documentation, visit [IndexNow Official Documentation](https://www.indexnow.org/documentation).
+
+### Protocol Details
+
+1. **Single URL Submission**:
+   ```
+   https://<searchengine>/indexnow?url=url-changed&key=your-key
+   ```
+
+2. **Bulk URL Submission** (up to 10,000 URLs):
+   ```json
+   POST /indexnow HTTP/1.1
+   Content-Type: application/json; charset=utf-8
+   Host: <searchengine>
+   {
+     "host": "www.example.com",
+     "key": "your-key",
+     "urlList": [
+       "https://www.example.com/url1",
+       "https://www.example.com/url2",
+       "https://www.example.com/url3"
+     ]
+   }
+   ```
+
+3. **Response Codes**:
+   - 200: Success
+   - 202: Accepted (key validation pending)
+   - 400: Bad request
+   - 403: Forbidden (invalid key)
+   - 422: Unprocessable Entity (invalid URLs)
+   - 429: Too Many Requests
+
 ## Features
 
 - Asynchronous processing for faster submissions
@@ -53,12 +96,6 @@ echo "abc123" > abc123.txt
 # Upload to https://example.com/abc123.txt
 ```
 
-### Key Requirements
-
-- Length: 32 characters
-- Allowed characters: a-z, A-Z, 0-9
-- Each host needs its own key file
-- You can reuse the same key across different hosts
 
 ## Usage
 
