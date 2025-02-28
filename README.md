@@ -9,41 +9,9 @@ IndexNow is a protocol that enables websites to instantly inform search engines 
 Key benefits:
 - Instant notifications of content changes
 - Efficient crawling (reduces unnecessary crawls)
-- Eco-friendly (reduces the internet's carbon footprint)
 - Shared updates (notify one search engine, reach all participating engines)
 
 For detailed protocol documentation, visit [IndexNow Official Documentation](https://www.indexnow.org/documentation).
-
-### Protocol Details
-
-1. **Single URL Submission**:
-   ```
-   https://<searchengine>/indexnow?url=url-changed&key=your-key
-   ```
-
-2. **Bulk URL Submission** (up to 10,000 URLs):
-   ```json
-   POST /indexnow HTTP/1.1
-   Content-Type: application/json; charset=utf-8
-   Host: <searchengine>
-   {
-     "host": "www.example.com",
-     "key": "your-key",
-     "urlList": [
-       "https://www.example.com/url1",
-       "https://www.example.com/url2",
-       "https://www.example.com/url3"
-     ]
-   }
-   ```
-
-3. **Response Codes**:
-   - 200: Success
-   - 202: Accepted (key validation pending)
-   - 400: Bad request
-   - 403: Forbidden (invalid key)
-   - 422: Unprocessable Entity (invalid URLs)
-   - 429: Too Many Requests
 
 ## Features
 
@@ -79,20 +47,17 @@ pip install -r requirements.txt
 
 ### Getting an API Key
 
-You have three options for obtaining an API key:
+You have the following options for obtaining an API key:
 
-1. **Auto-Detection**: The script will automatically search for an existing key file on your host in:
-   - Root directory (`https://example.com/*.txt`)
-   - `.well-known` directory (`https://example.com/.well-known/*.txt`)
 
-2. **Automatic Generation**: If no existing key is found, the script will:
+1. **Automatic Generation**: If no existing key is found, the script will:
    - Generate a random 32-character key
    - Guide you through the key file setup process
    - Wait for you to upload the key file
    - Verify the key file is accessible
    - Only proceed once verification is successful
 
-3. **Manual Specification**: Provide your own key using the `--api-key` parameter.
+2. **Manual Specification**: Provide your own key using the `--api-key` parameter.
 
 The script prioritizes:
 1. Manually specified key (if provided)
