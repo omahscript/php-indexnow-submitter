@@ -1,3 +1,5 @@
+![IndexNow](https://github.com/user-attachments/assets/e19fc198-dda8-4269-896d-5e13d90fc99d)
+
 # IndexNow Sitemap Submitter
 
 A simple tool to automatically notify search engines when your website content changes. Submit your sitemap once, and all major search engines will know about your updates!
