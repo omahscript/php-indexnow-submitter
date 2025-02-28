@@ -47,11 +47,12 @@ For detailed protocol documentation, visit [IndexNow Official Documentation](htt
 
 ## Features
 
+- Efficient bulk URL submission (up to 10,000 URLs per request)
 - Asynchronous processing for faster submissions
 - Supports all IndexNow-enabled search engines
 - Automatic rate limiting and retry logic for 429 errors
 - Exponential backoff for failed requests
-- Configurable concurrent requests
+- Configurable concurrent requests and batch sizes
 - Generates a random API key if none is provided
 - Provides detailed submission reports with retry statistics
 - Handles errors gracefully
@@ -109,12 +110,13 @@ python indexnow_submitter.py https://example.com/sitemap.xml
 
 ### Advanced Usage
 
-Use your own API key and configure concurrent requests:
+Use your own API key and configure concurrent requests and batch size:
 
 ```bash
 python indexnow_submitter.py https://example.com/sitemap.xml \
     --api-key your32characterAPIkeyHere12345678901 \
-    --max-concurrent 5
+    --max-concurrent 3 \
+    --batch-size 5000
 ```
 
 ### Command Line Arguments
@@ -122,6 +124,7 @@ python indexnow_submitter.py https://example.com/sitemap.xml \
 - `sitemap_url`: URL of the sitemap to process (required)
 - `--api-key`: IndexNow API key (optional, will generate if not provided)
 - `--max-concurrent`: Maximum number of concurrent requests (default: 3)
+- `--batch-size`: Number of URLs to submit in each batch (default: 10000, max: 10000)
 
 ## Features Details
 
@@ -133,11 +136,19 @@ python indexnow_submitter.py https://example.com/sitemap.xml \
 - Naver
 - Yep
 
+### Bulk Submission
+The script now uses IndexNow's bulk submission feature, which:
+- Processes URLs in batches (up to 10,000 URLs per request)
+- Reduces the number of API calls needed
+- Improves overall submission speed
+- Provides better rate limit handling
+
 ### Rate Limiting and Retry Logic
 - Implements exponential backoff for rate limit (429) responses
 - Retries up to 5 times with increasing delays
 - Tracks retry statistics in the final report
 - Configurable concurrent requests to prevent overwhelming servers
+- Automatic batch processing with configurable size
 
 ## Best Practices
 

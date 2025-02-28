@@ -10,13 +10,14 @@ Naver, and Yep.
 Features:
 - Asynchronous processing for efficient submissions
 - Support for all IndexNow-enabled search engines
+- Bulk URL submission (up to 10,000 URLs per request)
 - Automatic rate limiting and retry logic
 - Exponential backoff for rate-limited requests
 - Detailed submission reporting
 
 Author: Your Name
 License: MIT
-Version: 1.0.0
+Version: 1.1.0
 """
 
 import aiohttp
@@ -31,15 +32,18 @@ import string
 import os
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
+from typing import List, Dict
+import json
 
 logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class IndexNowSubmitter:
-    def __init__(self, api_key=None, max_concurrent_requests=3):
+    def __init__(self, api_key=None, max_concurrent_requests=3, batch_size=10000):
         self.api_key = api_key or self._generate_api_key()
         self.max_concurrent_requests = max_concurrent_requests
+        self.batch_size = min(batch_size, 10000)  # IndexNow limit is 10,000 URLs
         self.semaphore = asyncio.Semaphore(max_concurrent_requests)
         
         # All IndexNow-enabled search engines
@@ -56,7 +60,8 @@ class IndexNowSubmitter:
             'urls_found': 0,
             'successful_submissions': 0,
             'failed_submissions': 0,
-            'retried_submissions': 0
+            'retried_submissions': 0,
+            'batches_processed': 0
         }
         
     def _generate_api_key(self):
@@ -96,50 +101,49 @@ class IndexNowSubmitter:
             logger.error(f"Error parsing sitemap XML: {e}")
             return []
 
+    def _chunk_urls(self, urls: List[str], host: str) -> List[Dict]:
+        """Split URLs into chunks and prepare the payload for each chunk."""
+        for i in range(0, len(urls), self.batch_size):
+            chunk = urls[i:i + self.batch_size]
+            yield {
+                "host": host,
+                "key": self.api_key,
+                "urlList": chunk
+            }
+
     @retry(
         wait=wait_exponential(multiplier=1, min=4, max=60),
         stop=stop_after_attempt(5),
         retry_error_callback=lambda retry_state: False
     )
-    async def submit_url_to_engine(self, session, url, engine, endpoint):
-        """Submit a URL to a specific search engine with retry logic."""
-        async with self.semaphore:  # Control concurrent requests
-            params = {
-                'url': url,
-                'key': self.api_key
-            }
-            
+    async def submit_batch(self, session, engine: str, endpoint: str, payload: Dict):
+        """Submit a batch of URLs to a specific search engine."""
+        async with self.semaphore:
             try:
-                async with session.get(endpoint, params=params) as response:
+                headers = {
+                    'Content-Type': 'application/json; charset=utf-8'
+                }
+                
+                async with session.post(endpoint, json=payload, headers=headers) as response:
                     if response.status == 429:  # Too Many Requests
                         self.stats['retried_submissions'] += 1
                         logger.warning(f"Rate limit hit for {engine}, retrying with backoff...")
                         raise aiohttp.ClientError("Rate limit exceeded")
                     
-                    if response.status == 200:
-                        logger.info(f"Successfully submitted {url} to {engine}")
+                    if response.status in (200, 202):
+                        urls_count = len(payload['urlList'])
+                        logger.info(f"Successfully submitted batch of {urls_count} URLs to {engine}")
                         return True
                     else:
-                        logger.error(f"Failed to submit {url} to {engine}. Status code: {response.status}")
+                        logger.error(f"Failed to submit batch to {engine}. Status code: {response.status}")
                         return False
                         
             except aiohttp.ClientError as e:
                 logger.error(f"Error submitting to {engine}: {e}")
                 return False
 
-    async def submit_url(self, session, url):
-        """Submit a single URL to all configured search engines."""
-        tasks = []
-        for engine, endpoint in self.endpoints.items():
-            # Add a small delay between submissions to the same engine
-            await asyncio.sleep(0.2)
-            tasks.append(self.submit_url_to_engine(session, url, engine, endpoint))
-        
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        return sum(1 for r in results if r is True)
-
     async def process_sitemap(self, sitemap_url):
-        """Process all URLs in the sitemap asynchronously."""
+        """Process all URLs in the sitemap using batch submissions."""
         logger.info(f"\nStarting submission process at {datetime.now()}")
         logger.info(f"Using API key: {self.api_key}")
         
@@ -147,19 +151,30 @@ class IndexNowSubmitter:
         if not urls:
             logger.error("No URLs found in sitemap")
             return
+
+        # Extract host from the first URL
+        host = urlparse(urls[0]).netloc
         
         async with aiohttp.ClientSession() as session:
-            tasks = []
-            for url in urls:
-                tasks.append(self.submit_url(session, url))
-            
-            results = await asyncio.gather(*tasks)
-            
-            for successful_count in results:
-                if successful_count == len(self.endpoints):
-                    self.stats['successful_submissions'] += 1
+            for batch_payload in self._chunk_urls(urls, host):
+                self.stats['batches_processed'] += 1
+                batch_size = len(batch_payload['urlList'])
+                logger.info(f"Processing batch {self.stats['batches_processed']} with {batch_size} URLs")
+                
+                tasks = []
+                for engine, endpoint in self.endpoints.items():
+                    tasks.append(self.submit_batch(session, engine, endpoint, batch_payload))
+                
+                results = await asyncio.gather(*tasks)
+                successful_engines = sum(1 for r in results if r is True)
+                
+                if successful_engines == len(self.endpoints):
+                    self.stats['successful_submissions'] += batch_size
                 else:
-                    self.stats['failed_submissions'] += 1
+                    self.stats['failed_submissions'] += batch_size
+                
+                # Small delay between batches
+                await asyncio.sleep(1)
         
         self.print_report()
 
@@ -167,6 +182,7 @@ class IndexNowSubmitter:
         """Print a summary report of the submission process."""
         logger.info("\n=== IndexNow Submission Report ===")
         logger.info(f"URLs found in sitemap: {self.stats['urls_found']}")
+        logger.info(f"Batches processed: {self.stats['batches_processed']}")
         logger.info(f"Successful submissions: {self.stats['successful_submissions']}")
         logger.info(f"Failed submissions: {self.stats['failed_submissions']}")
         logger.info(f"Retried submissions: {self.stats['retried_submissions']}")
@@ -181,11 +197,16 @@ async def main():
     parser.add_argument('--api-key', help='IndexNow API key (optional, will generate if not provided)')
     parser.add_argument('--max-concurrent', type=int, default=3,
                        help='Maximum number of concurrent requests (default: 3)')
+    parser.add_argument('--batch-size', type=int, default=10000,
+                       help='Number of URLs per batch (default: 10000, max: 10000)')
     
     args = parser.parse_args()
     
-    submitter = IndexNowSubmitter(api_key=args.api_key, 
-                                max_concurrent_requests=args.max_concurrent)
+    submitter = IndexNowSubmitter(
+        api_key=args.api_key,
+        max_concurrent_requests=args.max_concurrent,
+        batch_size=args.batch_size
+    )
     await submitter.process_sitemap(args.sitemap_url)
 
 if __name__ == "__main__":
