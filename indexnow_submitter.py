@@ -39,19 +39,83 @@ from typing import List, Dict, Optional, Tuple, Set
 import json
 import re
 import sys
+from time import time as timestamp
 
-logging.basicConfig(level=logging.INFO,
-                   format='%(asctime)s - %(levelname)s - %(message)s')
+# Custom formatter for prettier output
+class ColorFormatter(logging.Formatter):
+    """Custom formatter with colors and strategic symbols."""
+    
+    grey = "\x1b[38;20m"
+    blue = "\x1b[34;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    green = "\x1b[32;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+
+    # Only use emojis for major status indicators
+    symbols = {
+        logging.DEBUG: "→",
+        logging.INFO: " ",  # Most info messages don't need symbols
+        logging.WARNING: "⚠️",
+        logging.ERROR: "❌",
+        logging.CRITICAL: "🚨"
+    }
+
+    # Special prefixes for major steps
+    step_prefixes = {
+        "Starting": "🚀",
+        "Scanning": "🔍",
+        "Processing": "📊",
+        "Complete": "✨",
+        "Report": "📝",
+        "Found": "✓",
+        "Error": "❌",
+        "Warning": "⚠️"
+    }
+
+    FORMATS = {
+        logging.DEBUG: grey + "%(message)s" + reset,
+        logging.INFO: "%(message)s",
+        logging.WARNING: yellow + "%(message)s" + reset,
+        logging.ERROR: red + "%(message)s" + reset,
+        logging.CRITICAL: bold_red + "%(message)s" + reset
+    }
+
+    def format(self, record):
+        # Get the base message format
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        
+        # Format the message first
+        formatted_msg = formatter.format(record)
+        
+        # Check if this is a major step that needs a prefix
+        for key, emoji in self.step_prefixes.items():
+            if formatted_msg.startswith(key):
+                formatted_msg = f"{emoji} {formatted_msg}"
+                break
+        
+        return formatted_msg
+
+# Set up logging with custom formatter
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Console handler with custom formatter
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(ColorFormatter())
+logger.handlers = [console_handler]
 
 class IndexNowSubmitter:
-    def __init__(self, api_key=None, max_concurrent_requests=3, batch_size=10000, interactive=True):
+    def __init__(self, api_key=None, max_concurrent_requests=5, batch_size=10000, interactive=True):
         self.api_key = api_key
         self.max_concurrent_requests = max_concurrent_requests
         self.batch_size = min(batch_size, 10000)  # IndexNow limit is 10,000 URLs
         self.semaphore = asyncio.Semaphore(max_concurrent_requests)
         self.interactive = interactive
         self.config_file = Path.home() / '.indexnow' / 'keys.json'
+        self.start_time = timestamp()
         
         # Create config directory if it doesn't exist
         self.config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +135,8 @@ class IndexNowSubmitter:
             'successful_submissions': 0,
             'failed_submissions': 0,
             'retried_submissions': 0,
-            'batches_processed': 0
+            'batches_processed': 0,
+            'start_time': timestamp()
         }
 
     def _load_stored_keys(self) -> Dict[str, str]:
@@ -252,6 +317,7 @@ class IndexNowSubmitter:
     async def fetch_sitemap(self, sitemap_url):
         """Fetch and parse the sitemap asynchronously."""
         try:
+            logger.info(f"Processing sitemap: {sitemap_url}")
             async with aiohttp.ClientSession() as session:
                 async with session.get(sitemap_url) as response:
                     if response.status != 200:
@@ -259,9 +325,52 @@ class IndexNowSubmitter:
                         return []
                     
                     content = await response.text()
+                    logger.info("Fetched sitemap successfully")
                     
-            # Parse the XML content
-            root = ET.fromstring(content)
+            # Try to clean the XML content
+            try:
+                # Remove any content before <?xml
+                if '<?xml' in content:
+                    content = content[content.find('<?xml'):]
+                
+                # Remove any content after the closing root element
+                if '</sitemapindex>' in content:
+                    content = content[:content.find('</sitemapindex>') + len('</sitemapindex>')]
+                elif '</urlset>' in content:
+                    content = content[:content.find('</urlset>') + len('</urlset>')]
+                
+                # Remove any whitespace between tags
+                content = re.sub(r'>\s+<', '><', content)
+                
+                # Try to parse the cleaned XML
+                root = ET.fromstring(content)
+                logger.info("Parsed XML successfully")
+            except ET.ParseError as first_error:
+                logger.warning("Standard XML parsing failed, trying alternative methods")
+                try:
+                    # Alternative method: use more lenient parser
+                    from defusedxml import ElementTree as SafeET
+                    root = SafeET.fromstring(content)
+                    logger.info("Parsed XML using safe parser")
+                except ImportError:
+                    logger.debug("defusedxml not available, trying direct content extraction")
+                    try:
+                        # Last resort: extract URLs using regex
+                        urls = []
+                        # Match both <loc> tags and xhtml:link href attributes
+                        loc_matches = re.findall(r'<loc[^>]*>(.*?)</loc>', content)
+                        href_matches = re.findall(r'href=[\'"]([^\'"]+)[\'"]', content)
+                        
+                        urls.extend(url.strip() for url in loc_matches)
+                        urls.extend(url.strip() for url in href_matches)
+                        
+                        logger.info("Extracted URLs using fallback method")
+                        self.stats['urls_found'] += len(urls)
+                        logger.info(f"Found {len(urls)} URLs")
+                        return urls
+                    except Exception as e:
+                        logger.error(f"All parsing methods failed: {e}")
+                        return []
             
             # Handle different XML namespaces that might be present in sitemaps
             namespaces = {
@@ -286,14 +395,14 @@ class IndexNowSubmitter:
                         urls.append(alt_url)
             
             self.stats['urls_found'] += len(urls)
-            logger.info(f"Found {len(urls)} URLs in sitemap {sitemap_url}")
+            logger.info(f"Found {len(urls)} URLs")
             return urls
             
         except aiohttp.ClientError as e:
             logger.error(f"Error fetching sitemap: {e}")
             return []
-        except ET.ParseError as e:
-            logger.error(f"Error parsing sitemap XML: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
             return []
 
     async def _process_sitemap_index(self, sitemaps, base_url: str) -> List[str]:
@@ -301,19 +410,39 @@ class IndexNowSubmitter:
         all_urls = []
         total_sitemaps = len(sitemaps)
         
-        for i, sitemap in enumerate(sitemaps, 1):
-            sitemap_url = sitemap.text
-            if not sitemap_url.startswith(('http://', 'https://')):
-                sitemap_url = urljoin(base_url, sitemap_url)
-                
-            logger.info(f"Processing sitemap {i}/{total_sitemaps}: {sitemap_url}")
-            urls = await self.fetch_sitemap(sitemap_url)
-            all_urls.extend(urls)
-            
-            # Small delay between fetching sitemaps to be nice to the server
-            if i < total_sitemaps:
-                await asyncio.sleep(1)
+        logger.info(f"Processing {total_sitemaps} sitemaps from index")
         
+        # Create a semaphore to limit concurrent sitemap processing
+        # Use half of max_concurrent_requests to avoid overwhelming the server
+        sitemap_semaphore = asyncio.Semaphore(max(2, self.max_concurrent_requests))
+        
+        async def process_single_sitemap(sitemap_entry, index):
+            """Process a single sitemap with semaphore control."""
+            async with sitemap_semaphore:
+                sitemap_url = sitemap_entry.text
+                if not sitemap_url.startswith(('http://', 'https://')):
+                    sitemap_url = urljoin(base_url, sitemap_url)
+                    
+                logger.info(f"Processing sitemap {index}/{total_sitemaps}")
+                urls = await self.fetch_sitemap(sitemap_url)
+                return urls
+        
+        # Create tasks for all sitemaps
+        tasks = [
+            process_single_sitemap(sitemap, i + 1)
+            for i, sitemap in enumerate(sitemaps)
+        ]
+        
+        # Process sitemaps concurrently and collect results
+        results = await asyncio.gather(*tasks)
+        
+        # Combine all URLs
+        for urls in results:
+            if urls:
+                all_urls.extend(urls)
+        
+        logger.info(f"Finished processing all sitemaps")
+        logger.info(f"Total URLs found: {len(all_urls)}")
         return all_urls
 
     def _chunk_urls(self, urls: List[str], host: str) -> List[Dict]:
@@ -344,56 +473,59 @@ class IndexNowSubmitter:
                 retry_count = 0
                 
                 while retry_count < max_403_retries:
+                    logger.info(f"    → Submitting to {engine.title()}...")
                     async with session.post(endpoint, json=payload, headers=headers) as response:
                         if response.status == 429:  # Too Many Requests
                             self.stats['retried_submissions'] += 1
-                            logger.warning(f"Rate limit hit for {engine}, retrying with backoff...")
+                            logger.warning(f"    ⚠️  Rate limit hit for {engine}, retrying with backoff...")
                             raise aiohttp.ClientError("Rate limit exceeded")
                         
                         if response.status == 403 and engine in ('bing', 'indexnow'):
                             retry_count += 1
                             if retry_count < max_403_retries:
                                 delay = 10 * retry_count  # Increasing delay: 10s, 20s, 30s
-                                logger.info(f"Received 403 from {engine}, waiting {delay}s for key propagation (attempt {retry_count}/{max_403_retries-1})...")
+                                logger.info(f"    ⏳ Received 403 from {engine}, waiting {delay}s for key propagation (attempt {retry_count}/{max_403_retries-1})...")
                                 await asyncio.sleep(delay)
                                 continue
                         
                         if response.status in (200, 202):
                             urls_count = len(payload['urlList'])
-                            logger.info(f"Successfully submitted batch of {urls_count} URLs to {engine}")
+                            logger.info(f"    ✓ {engine.title()}: Submitted {urls_count} URLs successfully")
                             return True
                         else:
-                            logger.error(f"Failed to submit batch to {engine}. Status code: {response.status}")
+                            logger.error(f"    ❌ {engine.title()}: Failed (HTTP {response.status})")
                             return False
                         
             except aiohttp.ClientError as e:
-                logger.error(f"Error submitting to {engine}: {e}")
+                logger.error(f"    ❌ {engine.title()}: Connection error ({str(e)})")
                 return False
 
     async def process_sitemap(self, sitemap_url):
         """Process all URLs in the sitemap using batch submissions."""
-        logger.info(f"\nStarting submission process at {datetime.now()}")
+        logger.info(f"\n🚀 Starting submission process...")
         
         # Initialize API key
         if not await self.initialize_key(sitemap_url):
-            logger.error("Aborting: No valid API key available")
+            logger.error("❌ Aborting: No valid API key available")
             return
             
-        logger.info(f"Using API key: {self.api_key}")
+        logger.info(f"  ✓ Using API key: {self.api_key}")
         
         urls = await self.fetch_sitemap(sitemap_url)
         if not urls:
-            logger.error("No URLs found in sitemap")
+            logger.error("❌ No URLs found in sitemap")
             return
 
         # Extract host from the first URL
         host = urlparse(urls[0]).netloc
         
+        logger.info("\n📤 Submitting URLs to search engines...")
         async with aiohttp.ClientSession() as session:
-            for batch_payload in self._chunk_urls(urls, host):
+            for batch_num, batch_payload in enumerate(self._chunk_urls(urls, host), 1):
                 self.stats['batches_processed'] += 1
                 batch_size = len(batch_payload['urlList'])
-                logger.info(f"Processing batch {self.stats['batches_processed']} with {batch_size} URLs")
+                logger.info(f"\n  → Batch {batch_num}/{(len(urls) + self.batch_size - 1) // self.batch_size}")
+                logger.info(f"    Processing {batch_size} URLs")
                 
                 tasks = []
                 for engine, endpoint in self.endpoints.items():
@@ -413,82 +545,86 @@ class IndexNowSubmitter:
                     self.stats['failed_submissions'] += batch_size
                 
                 # Small delay between batches
-                await asyncio.sleep(1)
+                if batch_num < (len(urls) + self.batch_size - 1) // self.batch_size:
+                    await asyncio.sleep(1)
         
         self.print_report()
 
     def print_report(self):
         """Print a summary report of the submission process."""
-        logger.info("\n=== IndexNow Submission Report ===")
-        logger.info(f"URLs found in sitemap: {self.stats['urls_found']}")
-        logger.info(f"Batches processed: {self.stats['batches_processed']}")
-        logger.info(f"Successful submissions: {self.stats['successful_submissions']}")
-        logger.info(f"Failed submissions: {self.stats['failed_submissions']}")
-        logger.info(f"Retried submissions: {self.stats['retried_submissions']}")
+        duration = timestamp() - self.stats['start_time']
+        
+        logger.info("\n✨ Submission Complete!")
+        logger.info("\n📊 Final Report:")
+        logger.info(f"  → URLs found: {self.stats['urls_found']}")
+        logger.info(f"  → Successful submissions: {self.stats['successful_submissions']}")
+        logger.info(f"  → Failed submissions: {self.stats['failed_submissions']}")
+        if self.stats['retried_submissions'] > 0:
+            logger.info(f"  → Retried submissions: {self.stats['retried_submissions']}")
+        
         if self.stats['urls_found'] > 0:
             success_rate = (self.stats['successful_submissions'] / self.stats['urls_found'] * 100)
-            logger.info(f"Success rate: {success_rate:.2f}%")
-            logger.info(f"Engines: {len(self.endpoints)} (indexnow, bing, yandex, seznam, naver, yep)")
-        logger.info("===============================\n")
+            logger.info(f"  → Success rate: {success_rate:.1f}%")
+        
+        logger.info(f"  → Time taken: {duration:.1f}s")
+        logger.info(f"  → Search engines: {len(self.endpoints)}")
+        logger.info("    • " + ", ".join(self.endpoints.keys()))
 
     async def detect_sitemaps(self, base_url: str) -> List[str]:
-        """
-        Detect sitemap URLs for a given domain by checking common locations
-        and parsing robots.txt.
-        """
+        """Detect sitemap URLs for a given domain."""
+        logger.info("\n🔍 Scanning website for sitemaps...")
+        
         parsed_url = urlparse(base_url)
         host = parsed_url.netloc
         scheme = parsed_url.scheme or 'https'
         base = f"{scheme}://{host}"
-
-        # Common sitemap locations to check
-        common_locations = [
-            '/sitemap.xml',
-            '/sitemap_index.xml',
-            '/sitemap-index.xml',
-            '/sitemaps/sitemap.xml',
-            '/wp-sitemap.xml',  # WordPress
-            '/sitemap/sitemap.xml'
-        ]
-
+        
         found_sitemaps = set()
         
         async with aiohttp.ClientSession() as session:
-            # First check robots.txt for sitemap declarations
+            # Check robots.txt
             try:
                 robots_url = f"{base}/robots.txt"
                 async with session.get(robots_url) as response:
                     if response.status == 200:
+                        logger.info("  ✓ Found robots.txt")
                         robots_content = await response.text()
-                        # Find all Sitemap: declarations in robots.txt
                         for line in robots_content.splitlines():
                             if line.lower().startswith(('sitemap:', 'sitemap-index:')):
                                 sitemap_url = line.split(':', 1)[1].strip()
                                 if not sitemap_url.startswith(('http://', 'https://')):
                                     sitemap_url = urljoin(base, sitemap_url)
                                 found_sitemaps.add(sitemap_url)
+                                logger.info(f"  ✓ Found sitemap in robots.txt: {sitemap_url}")
             except aiohttp.ClientError:
-                logger.debug(f"Could not fetch robots.txt from {robots_url}")
+                logger.debug("  → No robots.txt found")
 
-            # Then check common locations
+            # Check common locations
+            common_locations = [
+                '/sitemap.xml',
+                '/sitemap_index.xml',
+                '/sitemap-index.xml',
+                '/sitemaps/sitemap.xml',
+                '/wp-sitemap.xml',
+                '/sitemap/sitemap.xml'
+            ]
+
             for location in common_locations:
                 sitemap_url = urljoin(base, location)
                 try:
                     async with session.get(sitemap_url) as response:
                         if response.status == 200:
-                            # Verify it's actually XML content
                             content_type = response.headers.get('Content-Type', '')
                             if 'xml' in content_type.lower():
                                 found_sitemaps.add(sitemap_url)
+                                logger.info(f"  ✓ Found sitemap: {location}")
                 except aiohttp.ClientError:
                     continue
 
         if found_sitemaps:
-            logger.info(f"Found {len(found_sitemaps)} sitemap(s):")
-            for sitemap in found_sitemaps:
-                logger.info(f"- {sitemap}")
+            logger.info(f"\n✨ Found {len(found_sitemaps)} sitemap(s)")
         else:
-            logger.warning("No sitemaps found in common locations or robots.txt")
+            logger.warning("\n⚠️  No sitemaps found in common locations or robots.txt")
 
         return list(found_sitemaps)
 

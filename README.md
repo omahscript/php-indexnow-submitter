@@ -1,6 +1,6 @@
 # IndexNow Sitemap Submitter
 
-A simple tool to automatically notify search engines when your website content changes. Submit your sitemap once, and all major search engines will know about your updates!
+A simple tool to automatically notify search engines when your website content changes. Submit your sitemap once, and all major search engines will know about your updates! With beautiful progress indicators and clear visual feedback at every step.
 
 ## 🚀 Quick Start
 
@@ -14,11 +14,41 @@ pip install -r requirements.txt
 python indexnow_submitter.py https://your-website.com
 ```
 
-That's it! The tool will:
-- Find your sitemap automatically
-- Generate an API key if needed
-- Guide you through a simple setup
-- Submit your URLs to all major search engines
+That's it! The tool will guide you through the process with clear visual feedback:
+
+```
+🔍 Scanning website...
+  ✓ Found robots.txt
+  ✓ Discovered 3 sitemaps
+  ✓ Selected main sitemap: sitemap.xml
+
+🔑 Setting up API key...
+  ℹ️ Checking for existing key
+  ✓ Found key file at /.well-known/
+  ✓ Key verified successfully
+
+📊 Processing sitemaps...
+  → Processing sitemap 1/3: posts.xml
+    ✓ Found 150 URLs
+  → Processing sitemap 2/3: pages.xml
+    ✓ Found 25 URLs
+  → Processing sitemap 3/3: products.xml
+    ✓ Found 75 URLs
+  ✓ Total URLs found: 250
+
+🚀 Submitting URLs...
+  → Batch 1/1 (250 URLs)
+    ✓ Bing: Submitted successfully
+    ✓ Yandex: Submitted successfully
+    ✓ Seznam: Submitted successfully
+    ✓ Naver: Submitted successfully
+    ✓ Yep: Submitted successfully
+
+✨ All done! Summary:
+  → URLs submitted: 250
+  → Success rate: 100%
+  → Time taken: 5.2s
+```
 
 ## 📖 Common Use Cases
 
