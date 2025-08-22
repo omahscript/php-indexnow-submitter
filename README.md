@@ -1,6 +1,6 @@
 ![IndexNow](https://github.com/user-attachments/assets/e19fc198-dda8-4269-896d-5e13d90fc99d)
 
-# IndexNow Sitemap Submitter
+# PHP Version IndexNow Sitemap Submitter
 
 A simple tool to automatically notify search engines when your website content changes. Submit your sitemap once, and all major search engines will know about your updates! With beautiful progress indicators and clear visual feedback at every step.
 
@@ -10,7 +10,7 @@ A simple tool to automatically notify search engines when your website content c
 ```bash
 pip install -r requirements.txt
 ```
-
+Version
 2. Submit your website's URLs:
 ```bash
 python indexnow_submitter.py https://your-website.com
