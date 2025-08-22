@@ -1,149 +1,185 @@
-![IndexNow](https://github.com/user-attachments/assets/e19fc198-dda8-4269-896d-5e13d90fc99d)
-IndexNow Sitemap Submitter (PHP)
+INDEXNOW SITEMAP SUBMITTER (PHP) — DESCRIPTION & USAGE
+DESCRIPTION
 
-Submit your sitemap URLs to IndexNow-enabled search engines from the command line.
-This PHP port mirrors the original Python tool’s flow and flags.
+IndexNow Sitemap Submitter is a single-file PHP CLI tool that notifies
+IndexNow-enabled search engines whenever your site’s URLs change.
+Give it your domain or a sitemap URL; it will detect sitemaps, collect
+URLs, and submit them to Bing, Yandex, Seznam.cz, Naver, and Yep.
+It shows clear, step-by-step progress, handles rate limits, and
+retries automatically. API keys are stored per-domain for reuse.
 
-Supported endpoints: IndexNow Hub, Bing, Yandex, Seznam.cz, Naver, and Yep.
+REQUIREMENTS
 
-Features
+PHP 8.1+ (CLI)
 
-Sitemap auto-detection (checks robots.txt and common paths)
+PHP extensions: curl, dom
 
-Bulk URL submission (configurable batch size, capped at 5,000 per request)
+Internet access from the machine running the script
 
-Automatic retries with exponential backoff on HTTP 429
+INSTALLATION
 
-Soft 403 retries for key propagation (Bing & IndexNow)
+Save the script as: indexnow.php
 
-Per-host key storage at ~/.indexnow/keys.json
-
-Interactive key verification (or run fully non-interactive)
-
-Clean CLI logs and a final submission report
-
-Requirements
-
-PHP 7.4+ (PHP 8.x recommended)
-
-Extensions: curl, dom, libxml
-
-Installation
-
-Save the script as indexnow.php in your repo.
-
-Make it executable (optional):
-
+(Optional on Linux/macOS) Make it executable:
 chmod +x indexnow.php
 
-Quick Start
-# Detect sitemaps from your site root (interactive)
-php indexnow.php https://yourdomain.com
+QUICK START
 
-# Submit a known sitemap (non-interactive/CI)
-php indexnow.php https://yourdomain.com/sitemap.xml --non-interactive
+Submit your domain (auto-detect sitemaps):
+php indexnow.php https://your-website.com
 
-# Provide your own key and tune throughput
-php indexnow.php https://yourdomain.com/sitemap.xml --api-key=YOURKEY --max-concurrent=3 --batch-size=5000
+Submit a specific sitemap:
+php indexnow.php https://your-website.com/sitemap.xml
 
+Run without prompts (CI/cron friendly):
+php indexnow.php https://your-website.com
+ --non-interactive
 
-Keys are stored per host in ~/.indexnow/keys.json.
-If no key exists, the script can generate one and guide you to publish it at /<key>.txt or /.well-known/<key>.txt.
+USE YOUR OWN API KEY
 
-Usage
-php indexnow.php <url_or_sitemap.xml> [--api-key=KEY] [--max-concurrent=3] [--batch-size=5000] [--non-interactive]
+php indexnow.php https://your-website.com
+ --api-key=YOUR_KEY
 
-Options
-Flag	Description	Default
---api-key=KEY	Use an existing IndexNow key. Otherwise the tool finds/saves one or generates a new key.	auto
---max-concurrent	Retained for parity with the Python version (used to gate internal steps).	3
---batch-size	URLs per request (capped at 5000 to mirror the Python script).	5000
---non-interactive	Disable prompts (useful for CI).	off
+WHERE THE KEY FILE MUST LIVE ON YOUR SITE
 
-Inputs:
+Create a text file containing ONLY your key (no spaces/newlines) and
+upload it to ONE of these:
+https://your-website.com/YOUR_KEY.txt
 
-If the argument ends with .xml, it’s treated as a sitemap URL.
+https://your-website.com/.well-known/YOUR_KEY.txt
 
-Otherwise the tool tries to discover sitemaps from your site using robots.txt and common paths.
+The tool will try to find/verify this file automatically. It also caches
+keys per host in:
+Linux/macOS: ~/.indexnow/keys.json
+Windows: %USERPROFILE%.indexnow\keys.json
 
-Example Output
-Starting submission process...
-  ✓ Using API key: ****************
+COMMAND REFERENCE
 
-Processing sitemap: https://yourdomain.com/sitemap.xml
-Fetched sitemap successfully
-Found 1234 URLs
+php indexnow.php <url_or_sitemap.xml> [options]
 
-Submitting URLs to search engines...
+Options:
+--api-key=KEY Set/override IndexNow API key
+--max-concurrent=N Parallel submissions per batch (default: 3)
+--batch-size=N URLs per batch (default: 5000, max: 5000)
+--non-interactive No user prompts (useful for CI/cron)
 
-  → Batch 1/1
-    Processing 1234 URLs
-    → Submitting to Indexnow...
-    ✓ Indexnow: Submitted 1234 URLs successfully
-    → Submitting to Bing...
-    ⏳ Received 403 from bing, waiting 10s for key propagation (attempt 1/2)...
-    ✓ Bing: Submitted 1234 URLs successfully
-    → Submitting to Yandex...
-    ✓ Yandex: Submitted 1234 URLs successfully
-    → Submitting to Seznam...
-    ✓ Seznam: Submitted 1234 URLs successfully
-    → Submitting to Naver...
-    ✓ Naver: Submitted 1234 URLs successfully
-    → Submitting to Yep...
-    ✓ Yep: Submitted 1234 URLs successfully
+SUPPORTED SEARCH ENGINES
 
-Submission Complete!
+Microsoft Bing
 
-Final Report:
-  → URLs found: 1234
-  → Successful submissions: 1234
-  → Failed submissions: 0
-  → Success rate: 100.0%
-  → Time taken: 18.4s
-  → Search engines: 6
-    • indexnow, bing, yandex, seznam, naver, yep
+Yandex
 
-Key Setup & Verification
+Seznam.cz
 
-If no key is stored for your host, the script will:
+Naver
 
-Generate a key (or use --api-key if provided).
+Yep
 
-Ask you to place a file containing only the key at either:
+WHAT HAPPENS WHEN YOU RUN IT
 
-https://yourdomain.com/<key>.txt
+Scans robots.txt and common paths for sitemaps (if you passed a domain)
 
-https://yourdomain.com/.well-known/<key>.txt
+Parses XML sitemaps (including sitemap index files)
 
-Verify the file automatically.
+Collects URLs (including alternate hreflang links)
 
-Store the key in ~/.indexnow/keys.json for future runs.
+Ensures/initializes your IndexNow key file
 
-With --non-interactive, ensure the key file is already live.
+Submits URLs in batches to multiple engines
 
-Troubleshooting
+Prints a final report with success and timing
 
-HTTP 403 (Bing / IndexNow): Usually key propagation. The script automatically waits (10s → 20s → 30s) and retries.
+SAMPLE OUTPUT (ABBREVIATED)
 
-HTTP 429 (Too Many Requests): Exponential backoff (4s → 8s → 16s → 32s → 60s).
+🔍 Scanning website...
+✓ Found robots.txt
+✓ Discovered 3 sitemaps
+✓ Selected main sitemap: sitemap.xml
 
-Failed sitemap fetch: Ensure the URL is reachable and returns HTTP 200 with XML.
+🔑 Setting up API key...
+✓ Found key file at /.well-known/
+✓ Key verified successfully
 
-XML parse warnings: The parser falls back to lenient extraction from <loc> and href if strict parsing fails.
+📊 Processing sitemaps...
+→ Processing sitemap 1/3...
+✓ Found 150 URLs
+→ Processing sitemap 2/3...
+✓ Found 25 URLs
+→ Processing sitemap 3/3...
+✓ Found 75 URLs
+✓ Total URLs found: 250
 
-CI/CD Example (GitHub Actions)
-- name: Submit IndexNow
-  run: |
-    php indexnow.php https://yourdomain.com/sitemap.xml --non-interactive
+🚀 Submitting URLs...
+→ Batch 1/1 (250 URLs)
+✓ Bing: Submitted successfully
+✓ Yandex: Submitted successfully
+✓ Seznam: Submitted successfully
+✓ Naver: Submitted successfully
+✓ Yep: Submitted successfully
 
+✨ All done! Summary:
+→ URLs submitted: 250
+→ Success rate: 100%
+→ Time taken: 5.2s
 
-Make sure your key file is deployed ahead of time, or pass --api-key and publish the key file as part of your deployment.
+EXAMPLES
 
-License
+Use a custom key and reduce concurrency:
+php indexnow.php https://your-website.com
+ --api-key=ABC123 --max-concurrent=2
 
-MIT
+Automate without prompts (good for cron/CI):
+php indexnow.php https://your-website.com
+ --non-interactive
 
-Contributing
+Submit a large sitemap with smaller batches:
+php indexnow.php https://your-website.com/sitemap.xml
+ --batch-size=2000
 
-Issues and PRs are welcome.
-Ideas: optional curl_multi_* for parallel engine submissions, progress bars, JSON report output.
+CRON (LINUX/MACOS) EXAMPLE
+
+0 3 * * * /usr/bin/php /path/to/indexnow.php https://your-website.com
+ --non-interactive >> /var/log/indexnow.log 2>&1
+
+WINDOWS TASK SCHEDULER (CMD) EXAMPLE
+
+"C:\Path\To\php.exe" "C:\Path\To\indexnow.php" https://your-website.com
+ --non-interactive
+
+TROUBLESHOOTING
+
+URLs not submitted?
+
+Check the sitemap URL returns HTTP 200 and contains valid absolute URLs
+
+Ensure your key file is publicly reachable over HTTPS
+
+HTTP 429 rate limit?
+
+Lower --max-concurrent to 2 or 1
+
+Try again after a short delay
+
+Key file issues?
+
+The file must contain ONLY the key (no extra spaces/newlines)
+
+Try the /.well-known/ location if root is not accessible
+
+Confirm HTTPS accessibility
+
+BEHAVIOR DETAILS
+
+Batch size capped at 5000 URLs for safety
+
+Retries with exponential backoff on 429 (approx. 4s → 8s → 16s → 32s → 60s)
+
+Soft 403 retries for Bing and IndexNow hub (10s/20s/30s) to allow key propagation
+
+De-duplicates URLs; includes xhtml:link rel="alternate"
+
+Clear summary report at the end
+
+LICENSE
+
+MIT License — free to use in personal and commercial projects.
