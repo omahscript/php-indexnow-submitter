@@ -63,6 +63,7 @@ Options
 --non-interactive      No user prompts (useful for CI/cron)
 ________________________________________
 WHAT YOU’LL SEE (SAMPLE OUTPUT)
+```bash
 🔍 Scanning website...
   ✓ Found robots.txt
   ✓ Discovered 3 sitemaps
@@ -93,6 +94,7 @@ WHAT YOU’LL SEE (SAMPLE OUTPUT)
   → URLs submitted: 250
   → Success rate: 100%
   → Time taken: 5.2s
+```
 ________________________________________
 API KEY SETUP
 Let the tool handle it (recommended): It looks for an existing key; if none is found, it generates one, shows where to upload, and verifies it.
