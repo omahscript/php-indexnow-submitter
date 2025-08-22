@@ -1,4 +1,5 @@
 ![IndexNow](https://github.com/user-attachments/assets/e19fc198-dda8-4269-896d-5e13d90fc99d)
+
 INDEXNOW SITEMAP SUBMITTER (PHP) — DESCRIPTION & USAGE
 A single-file PHP CLI tool that notifies IndexNow-enabled search engines whenever your site’s URLs change.
 Point it at your domain or a sitemap.xml and it will discover sitemaps, collect URLs, and submit them to Bing, Yandex, Seznam.cz, Naver, and Yep with clear, emoji-based progress.
@@ -128,6 +129,7 @@ Windows (Task Scheduler, Command):
 ```
 ________________________________________
 TROUBLESHOOTING
+```bash
 URLs not submitted?
 - Ensure sitemap URL returns HTTP 200
 - Ensure sitemap URLs are absolute and valid
@@ -139,14 +141,19 @@ Key file problems?
 - File must contain ONLY the key (no extra whitespace)
 - Try /.well-known/ if root is unavailable
 - Confirm HTTPS accessibility
-________________________________________
+```
+_______________________________________
 SUPPORTED SEARCH ENGINES
+```bash
 - Microsoft Bing
 - Yandex
 - Seznam.cz
 - Naver
 - Yep
+```
 ________________________________________
 LICENSE
+```bash
 MIT License — free for personal and commercial use.
+```
 
