@@ -1,171 +1,172 @@
 ![IndexNow](https://github.com/user-attachments/assets/e19fc198-dda8-4269-896d-5e13d90fc99d)
 
-# PHP Version IndexNow Sitemap Submitter
+IndexNow Sitemap Submitter (PHP)
 
-A simple tool to automatically notify search engines when your website content changes. Submit your sitemap once, and all major search engines will know about your updates! With beautiful progress indicators and clear visual feedback at every step.
+Submit your sitemap URLs to IndexNow-enabled search engines from the command line.
+This tool mirrors the behavior and flags of the original Python version—now in PHP.
 
-## 🚀 Quick Start
+Supports the IndexNow hub, Bing, Yandex, Seznam.cz, Naver, and Yep.
 
-1. Install the tool (tested with Python 3.11)
-```bash
-pip install -r requirements.txt
-```
-Version
-2. Submit your website's URLs:
-```bash
-python indexnow_submitter.py https://your-website.com
-```
+✨ Features
 
-That's it! The tool will guide you through the process with clear visual feedback:
+Sitemap auto-detection (checks robots.txt and common paths)
 
-```
-🔍 Scanning website...
-  ✓ Found robots.txt
-  ✓ Discovered 3 sitemaps
-  ✓ Selected main sitemap: sitemap.xml
+Bulk URL submission (configurable batch size, capped at 5,000 per batch)
 
-🔑 Setting up API key...
-  ℹ️ Checking for existing key
-  ✓ Found key file at /.well-known/
-  ✓ Key verified successfully
+Automatic retries with exponential backoff on rate limits (HTTP 429)
 
-📊 Processing sitemaps...
-  → Processing sitemap 1/3: posts.xml
-    ✓ Found 150 URLs
-  → Processing sitemap 2/3: pages.xml
-    ✓ Found 25 URLs
-  → Processing sitemap 3/3: products.xml
-    ✓ Found 75 URLs
-  ✓ Total URLs found: 250
+Key propagation handling for Bing & IndexNow (soft 403 retries)
 
-🚀 Submitting URLs...
-  → Batch 1/1 (250 URLs)
-    ✓ Bing: Submitted successfully
-    ✓ Yandex: Submitted successfully
-    ✓ Seznam: Submitted successfully
-    ✓ Naver: Submitted successfully
-    ✓ Yep: Submitted successfully
+Per-host key storage at ~/.indexnow/keys.json
 
-✨ All done! Summary:
-  → URLs submitted: 250
-  → Success rate: 100%
-  → Time taken: 5.2s
-```
+Interactive key verification (or non-interactive mode)
 
-## 📖 Common Use Cases
+Clean, emoji-aided CLI logs and a final submission report
 
-### Submit a Specific Sitemap
+🔧 Requirements
 
-```bash
-python indexnow_submitter.py https://your-website.com/sitemap.xml
-```
+PHP 7.4+ (PHP 8.x recommended)
 
-### Use Your Own API Key
+PHP extensions: curl, dom, libxml
 
-```bash
-python indexnow_submitter.py https://your-website.com --api-key your-key-here
-```
+🚀 Quick Start
+# 1) Save the script
+curl -o indexnow.php https://example.com/path/to/indexnow.php
+chmod +x indexnow.php
 
-### Run Without Prompts (Automated Mode)
+# 2) Detect sitemaps from your root URL (interactive)
+php indexnow.php https://yourdomain.com
 
-```bash
-python indexnow_submitter.py https://your-website.com --non-interactive
-```
+# 3) Submit a known sitemap (non-interactive)
+php indexnow.php https://yourdomain.com/sitemap.xml --non-interactive
 
-## 🔑 API Key Setup
+# 4) Provide your own key and tune throughput
+php indexnow.php https://yourdomain.com/sitemap.xml --api-key=YOURKEY --max-concurrent=3 --batch-size=5000
 
-### Option 1: Let the Tool Handle It (Recommended)
-Just run the tool - it will:
-1. Generate a key for you
-2. Show you where to put it
-3. Wait while you set it up
-4. Verify everything works
 
-### Option 2: Manual Setup
-1. Create a text file with your key:
-```bash
-echo "your-key-here" > your-key-here.txt
-```
+Keys are stored per host in ~/.indexnow/keys.json.
+If no key is found, the tool can generate one and guide you to verify it at /<key>.txt or /.well-known/<key>.txt.
 
-2. Upload it to one of these locations:
-- `https://your-website.com/your-key-here.txt`
-- `https://your-website.com/.well-known/your-key-here.txt`
+⚙️ Usage
+php indexnow.php <url_or_sitemap.xml> [--api-key=KEY] [--max-concurrent=3] [--batch-size=5000] [--non-interactive]
 
-## ✨ Features
+Options
+Flag	Description	Default
+--api-key=KEY	Use an existing IndexNow key. If omitted, the script finds/stores one or generates a new one.	(auto)
+--max-concurrent	Parallelism cap used by the original Python version. Kept for compatibility.	3
+--batch-size	URLs per request (capped at 5000 to mirror the Python script).	5000
+--non-interactive	Disable prompts (good for CI).	off
 
-- 🔄 Instant search engine updates
-- 🔍 Supports Bing, Yandex, and other major search engines
-- 📑 Handles all sitemap types (including sitemap index files)
-- 🚦 Smart rate limiting to avoid overload
-- 🔄 Automatic retries if something fails
-- 🌍 Supports multiple languages (hreflang)
+Inputs:
 
-## 🛠️ Advanced Usage
+If the argument ends with .xml, it’s treated as a sitemap.
 
-### Command Line Options
+Otherwise, the tool tries to discover sitemaps from your site root.
 
-```bash
-python indexnow_submitter.py https://your-website.com [options]
+🌐 Search Engines
 
-Options:
-  --api-key KEY        Your IndexNow API key
-  --max-concurrent N   Max parallel requests (default: 3)
-  --batch-size N      URLs per batch (default: 10000)
-  --non-interactive   Run without prompts
-```
+Submissions are sent to:
 
-### Supported Search Engines
-- Microsoft Bing
-- Yandex
-- Seznam.cz
-- Naver
-- Yep
+IndexNow Hub — https://api.indexnow.org/indexnow
 
-## 🔍 Troubleshooting
+Bing — https://www.bing.com/indexnow
 
-### Common Issues
+Yandex — https://yandex.com/indexnow
 
-**URLs Not Being Submitted?**
-1. Check if your sitemap is accessible
-2. Make sure URLs in the sitemap are valid
-3. Verify your API key file is accessible
+Seznam.cz — https://search.seznam.cz/indexnow
 
-**Getting Rate Limited?**
-- Reduce `--max-concurrent` to 2 or 1
-- Wait a few minutes and try again
+Naver — https://searchadvisor.naver.com/indexnow
 
-**Key File Not Working?**
-- Ensure it's accessible via HTTPS
-- Check it contains only the key (no extra spaces)
-- Try the `.well-known` directory instead
+Yep — https://indexnow.yep.com/indexnow
 
-Need more help? Check the [IndexNow Documentation](https://www.indexnow.org/documentation)
+🧪 Example Output
+🚀 Starting submission process...
+  ✓ Using API key: **********************
 
-## 📚 Technical Details
+Processing sitemap: https://yourdomain.com/sitemap.xml
+Fetched sitemap successfully
+Found 1234 URLs
 
-<details>
-<summary>Click to expand technical information</summary>
+📤 Submitting URLs to search engines...
 
-### Sitemap Processing
-- Supports XML sitemaps and sitemap indexes
-- Handles up to 10,000 URLs per batch
-- Processes alternate language versions
-- Retries failed submissions with exponential backoff
+  → Batch 1/1
+    Processing 1234 URLs
+    → Submitting to Indexnow...
+    ✓ Indexnow: Submitted 1234 URLs successfully
+    → Submitting to Bing...
+    ⏳ Received 403 from bing, waiting 10s for key propagation (attempt 1/2)...
+    ✓ Bing: Submitted 1234 URLs successfully
+    → Submitting to Yandex...
+    ✓ Yandex: Submitted 1234 URLs successfully
+    → Submitting to Seznam...
+    ✓ Seznam: Submitted 1234 URLs successfully
+    → Submitting to Naver...
+    ✓ Naver: Submitted 1234 URLs successfully
+    → Submitting to Yep...
+    ✓ Yep: Submitted 1234 URLs successfully
 
-### Rate Limiting
-- Smart retry logic for 429 responses
-- Configurable concurrent requests
-- Automatic batch processing
+✨ Submission Complete!
 
-### Sitemap Auto-Detection
-Checks these locations:
-- /sitemap.xml
-- /sitemap_index.xml
-- /sitemap-index.xml
-- /sitemaps/sitemap.xml
-- /wp-sitemap.xml
-- /sitemap/sitemap.xml
-- Entries in robots.txt
+📊 Final Report:
+  → URLs found: 1234
+  → Successful submissions: 1234
+  → Failed submissions: 0
+  → Success rate: 100.0%
+  → Time taken: 18.4s
+  → Search engines: 6
+    • indexnow, bing, yandex, seznam, naver, yep
+
+🔑 Key Setup & Verification
+
+If no key is stored for your host, the script will:
+
+Generate a key (or use --api-key if provided).
+
+Ask you to place a file containing only the key at either:
+
+https://yourdomain.com/<key>.txt
+
+https://yourdomain.com/.well-known/<key>.txt
+
+Verify the file automatically.
+
+Store it in ~/.indexnow/keys.json for future runs.
+
+Running with --non-interactive skips prompts; ensure the key file is already live.
+
+🧰 Troubleshooting
+
+HTTP 403 (Bing / IndexNow)
+Often due to key propagation delay. The tool automatically waits (10s/20s/30s) and retries.
+
+HTTP 429 (Too Many Requests)
+The tool uses exponential backoff (4s → 8s → 16s → 32s → 60s).
+
+“Failed to fetch sitemap”
+Make sure the sitemap URL is reachable and returns HTTP 200 with XML.
+
+XML parse warnings
+The script falls back to a lenient extraction from <loc> and href if strict parsing fails.
+
+🧪 CI/CD
+
+Example GitHub Actions step:
+
+- name: Submit IndexNow
+  run: |
+    php indexnow.php https://yourdomain.com/sitemap.xml --non-interactive
+
+
+Ensure your key file is already deployed, or set --api-key and host the verification file in your web root.
+
+📄 License
+
+MIT — do what you like, just keep the notice.
+
+🙌 Contributing
+
+Issues and PRs are welcome!
+Ideas: optional curl_multi_* for parallel engine submissions, progress bars, JSON report output.
 
 </details>
 
