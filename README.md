@@ -11,7 +11,7 @@ ________________________________________
 INSTALLATION
 # Download the script (example URL)
 ```bash
-curl -L -o indexnow.php https://example.com/path/to/indexnow.php
+curl -L -o [indexnow.php](https://github.com/omahscript/php-indexnow-submitter/blob/main/indexnow.php) https://example.com/path/to/indexnow.php
 ```
 
 
