@@ -26,8 +26,9 @@ chmod +x indexnow.php
 QUICK START
 
 Submit your domain (auto-detect sitemaps):
+```bash
 php indexnow.php https://your-website.com
-
+```
 Submit a specific sitemap:
 php indexnow.php https://your-website.com/sitemap.xml
 
