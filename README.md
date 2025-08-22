@@ -10,14 +10,20 @@ REQUIREMENTS
 •	Internet access
 ________________________________________
 INSTALLATION
-# Change to Public html folder (example /var/www/html)
+# Download the script (example URL)
 ```bash
-cd /var/www/html
+curl -L -o indexnow.php https://example.com/path/to/indexnow.php
 ```
-# Download the script 
+# or save indexnow.php to your public html folder
 ```bash
-wget https://github.com/omahscript/php-indexnow-submitter/blob/main/indexnow.php
+cd /var/www/html && nano indexnow.php
+then copy all content indexnow.php
 ```
+
+# (Optional on Unix-like systems)
+```bash
+chmod +x indexnow.php
+
 
 # (Optional on Unix-like systems)
 ```bash
